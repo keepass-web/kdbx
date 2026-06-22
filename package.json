@@ -11,8 +11,8 @@
     "test": "node --experimental-strip-types --test 'tests/**/*.test.ts'"
   },
   "dependencies": {
-    "@keepass-web/argon2": "^0.0.0",
-    "@keepass-web/chacha20": "^0.0.0"
+    "@keepass-web/argon2": "^0.1.1",
+    "@keepass-web/chacha20": "^0.1.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.0",
