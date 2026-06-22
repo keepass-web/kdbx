@@ -10,6 +10,10 @@
     "format": "biome format --write .",
     "test": "node --experimental-strip-types --test 'tests/**/*.test.ts'"
   },
+  "dependencies": {
+    "@keepass-web/argon2": "^0.0.0",
+    "@keepass-web/chacha20": "^0.0.0"
+  },
   "devDependencies": {
     "@biomejs/biome": "2.5.0",
     "@types/node": "^22.20.0",

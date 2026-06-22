@@ -4,9 +4,11 @@
 
 The KDBX format is documented by the KeePass project.
 
-- **KDBX 4.x**: https://keepass.info/help/kb/kdbx_4.html
-- **KDBX 3.1**: https://keepass.info/help/kb/kdbx_4.html (see version notes)
-- **File format internals**: https://keepass.info/help/kb/kdbx_4b.html
+- **Complete specification**: https://keepass.info/help/kb/kdbx.html — the authoritative reference for the binary format (header, variant dictionary, key computation, HMAC-protected block stream, inner header, inner encryption, XML document). Currently defines KDBX 4.1.
+- **KDBX 4** (changes from KDBX 3.1 to 4): https://keepass.info/help/kb/kdbx_4.html
+- **KDBX 4.1** (changes from KDBX 4 to 4.1): https://keepass.info/help/kb/kdbx_4.1.html
+- **KDBX 3.1**: no standalone page; see the KDBX 4 page above for the 3.1 → 4 differences, plus the complete specification for shared internals.
+- **XML schema**: https://keepass.info/help/download/KDBX_XML.xsd (KDBX 4.1 XML Schema).
 
 ### Secondary signatures
 
