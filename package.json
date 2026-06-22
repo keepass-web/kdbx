@@ -4,7 +4,31 @@
   "type": "module",
   "description": "KDBX 3.1 and 4.x parser and serializer for keepass-web.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/keepass-web/kdbx.git"
+  },
+  "homepage": "https://github.com/keepass-web/kdbx#readme",
+  "bugs": "https://github.com/keepass-web/kdbx/issues",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": "./dist/src/index.js"
+  },
+  "types": "./dist/src/index.d.ts",
+  "files": [
+    "dist",
+    "src",
+    "SPEC.md"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
+    "clean": "rm -rf dist",
+    "build": "tsc --project tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "format": "biome format --write .",
