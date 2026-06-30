@@ -57,7 +57,7 @@ export interface ParsedOuterHeader {
   offset: number;
 }
 
-function isKdbx4(major: number): boolean {
+function kx_isKdbx4(major: number): boolean {
   return major >= 4;
 }
 
@@ -81,22 +81,22 @@ export function readOuterHeader(data: Uint8Array): ParsedOuterHeader {
 
   for (;;) {
     const id = reader.readU8();
-    const size = isKdbx4(major) ? reader.readI32() : reader.readU16();
+    const size = kx_isKdbx4(major) ? reader.readI32() : reader.readU16();
     const value = reader.readBytes(size);
     if (id === HeaderFieldId.EndOfHeader) {
       break;
     }
-    applyHeaderField(header, id, value);
+    kx_applyHeaderField(header, id, value);
   }
 
   return {
-    header: finalizeHeader(header),
+    header: kx_finalizeHeader(header),
     rawHeader: data.slice(0, reader.offset),
     offset: reader.offset,
   };
 }
 
-function applyHeaderField(
+function kx_applyHeaderField(
   header: Partial<OuterHeader> & { version: KdbxVersion },
   id: number,
   value: Uint8Array,
@@ -144,7 +144,7 @@ function applyHeaderField(
   }
 }
 
-function finalizeHeader(header: Partial<OuterHeader> & { version: KdbxVersion }): OuterHeader {
+function kx_finalizeHeader(header: Partial<OuterHeader> & { version: KdbxVersion }): OuterHeader {
   if (!header.cipherId) {
     throw new Error('outer header is missing the cipher ID');
   }
@@ -167,7 +167,7 @@ export function writeOuterHeader(header: OuterHeader): Uint8Array {
 
   const writeField = (id: number, value: Uint8Array): void => {
     writer.writeU8(id);
-    if (isKdbx4(major)) {
+    if (kx_isKdbx4(major)) {
       writer.writeI32(value.length);
     } else {
       writer.writeU16(value.length);
@@ -185,7 +185,7 @@ export function writeOuterHeader(header: OuterHeader): Uint8Array {
   );
   writeField(HeaderFieldId.MasterSeed, header.masterSeed);
 
-  if (isKdbx4(major)) {
+  if (kx_isKdbx4(major)) {
     if (!header.kdfParameters) {
       throw new Error('KDBX 4 header requires KDF parameters');
     }

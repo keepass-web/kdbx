@@ -13,8 +13,8 @@ import { getRandomBytes } from './crypto.ts';
 import type { ProtectedStreamCipher } from './protected-stream.ts';
 import type { XmlElement, XmlNode } from './xml.ts';
 
-const PROTECTED_ATTRIBUTE = 'Protected';
-const GENERATOR = 'keepass-web';
+const KX_PROTECTED_ATTRIBUTE = 'Protected';
+const KX_GENERATOR = 'keepass-web';
 
 /** A value that is encrypted by the inner random stream when stored on disk. */
 export class ProtectedValue {
@@ -126,13 +126,13 @@ export function cloneElement(element: XmlElement): XmlElement {
 
 // --- Inner-stream protection ------------------------------------------------
 
-function walkProtected(element: XmlElement, visit: (el: XmlElement) => void): void {
-  if (getAttribute(element, PROTECTED_ATTRIBUTE) === 'True') {
+function kx_walkProtected(element: XmlElement, visit: (el: XmlElement) => void): void {
+  if (getAttribute(element, KX_PROTECTED_ATTRIBUTE) === 'True') {
     visit(element);
   }
   for (const child of element.children) {
     if (child.type === 'element') {
-      walkProtected(child, visit);
+      kx_walkProtected(child, visit);
     }
   }
 }
@@ -142,7 +142,7 @@ function walkProtected(element: XmlElement, visit: (el: XmlElement) => void): vo
  * Base64 ciphertext with plaintext (the marker attribute is kept).
  */
 export function applyInboundProtection(root: XmlElement, cipher: ProtectedStreamCipher): void {
-  walkProtected(root, (element) => {
+  kx_walkProtected(root, (element) => {
     const ciphertext = fromBase64(getText(element));
     setText(element, utf8Decode(cipher.process(ciphertext)));
   });
@@ -154,7 +154,7 @@ export function applyInboundProtection(root: XmlElement, cipher: ProtectedStream
  * readable.
  */
 export function applyOutboundProtection(root: XmlElement, cipher: ProtectedStreamCipher): void {
-  walkProtected(root, (element) => {
+  kx_walkProtected(root, (element) => {
     const ciphertext = cipher.process(utf8Encode(getText(element)));
     setText(element, toBase64(ciphertext));
   });
@@ -162,16 +162,16 @@ export function applyOutboundProtection(root: XmlElement, cipher: ProtectedStrea
 
 // --- Builders ---------------------------------------------------------------
 
-function nowIso(): string {
+function kx_nowIso(): string {
   return new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
 }
 
-function newUuid(): string {
+function kx_newUuid(): string {
   return toBase64(getRandomBytes(16));
 }
 
-function createTimes(): XmlElement {
-  const now = nowIso();
+function kx_createTimes(): XmlElement {
+  const now = kx_nowIso();
   const times = createElement('Times');
   for (const field of [
     'LastModificationTime',
@@ -205,12 +205,12 @@ export interface EntryInput {
   fields?: EntryField[];
 }
 
-function createStringField(field: EntryField): XmlElement {
+function kx_createStringField(field: EntryField): XmlElement {
   const string = createElement('String');
   appendChild(string, createElement('Key', field.key));
   const value = createElement('Value', field.value);
   if (field.protect) {
-    setAttribute(value, PROTECTED_ATTRIBUTE, 'True');
+    setAttribute(value, KX_PROTECTED_ATTRIBUTE, 'True');
   }
   appendChild(string, value);
   return string;
@@ -219,9 +219,9 @@ function createStringField(field: EntryField): XmlElement {
 /** Build an `<Entry>` element from the given fields. */
 export function createEntry(input: EntryInput): XmlElement {
   const entry = createElement('Entry');
-  appendChild(entry, createElement('UUID', newUuid()));
+  appendChild(entry, createElement('UUID', kx_newUuid()));
   appendChild(entry, createElement('IconID', '0'));
-  appendChild(entry, createTimes());
+  appendChild(entry, kx_createTimes());
 
   const fields: EntryField[] = [
     { key: 'Title', value: input.title ?? '' },
@@ -232,7 +232,7 @@ export function createEntry(input: EntryInput): XmlElement {
     ...(input.fields ?? []),
   ];
   for (const field of fields) {
-    appendChild(entry, createStringField(field));
+    appendChild(entry, kx_createStringField(field));
   }
   return entry;
 }
@@ -240,10 +240,10 @@ export function createEntry(input: EntryInput): XmlElement {
 /** Build a `<Group>` element with the given name. */
 export function createGroup(name: string): XmlElement {
   const group = createElement('Group');
-  appendChild(group, createElement('UUID', newUuid()));
+  appendChild(group, createElement('UUID', kx_newUuid()));
   appendChild(group, createElement('Name', name));
   appendChild(group, createElement('IconID', '49'));
-  appendChild(group, createTimes());
+  appendChild(group, kx_createTimes());
   return group;
 }
 
@@ -258,9 +258,9 @@ export function createDatabaseDocument(
   const root = createElement('KeePassFile');
 
   const meta = createElement('Meta');
-  appendChild(meta, createElement('Generator', GENERATOR));
+  appendChild(meta, createElement('Generator', KX_GENERATOR));
   appendChild(meta, createElement('DatabaseName', databaseName));
-  appendChild(meta, createElement('DatabaseNameChanged', nowIso()));
+  appendChild(meta, createElement('DatabaseNameChanged', kx_nowIso()));
   appendChild(meta, createElement('RecycleBinEnabled', 'True'));
   appendChild(meta, createElement('HistoryMaxItems', '10'));
   appendChild(root, meta);

@@ -34,15 +34,15 @@ export type VdValue =
 /** A VariantDictionary, preserving insertion order. */
 export type VariantDictionary = Map<string, VdValue>;
 
-const CURRENT_MAJOR = 1;
-const CURRENT_VERSION = 0x0100;
+const KX_CURRENT_MAJOR = 1;
+const KX_CURRENT_VERSION = 0x0100;
 
 /** Parse a VariantDictionary from its byte encoding. */
 export function readVariantDictionary(bytes: Uint8Array): VariantDictionary {
   const reader = new ByteReader(bytes);
   const version = reader.readU16();
   const major = (version >> 8) & 0xff;
-  if (major > CURRENT_MAJOR) {
+  if (major > KX_CURRENT_MAJOR) {
     throw new Error(`unsupported VariantDictionary version 0x${version.toString(16)}`);
   }
 
@@ -56,12 +56,12 @@ export function readVariantDictionary(bytes: Uint8Array): VariantDictionary {
     const name = utf8Decode(reader.readBytes(nameSize));
     const valueSize = reader.readI32();
     const valueBytes = reader.readBytes(valueSize);
-    dict.set(name, decodeValue(type, valueBytes));
+    dict.set(name, kx_decodeValue(type, valueBytes));
   }
   return dict;
 }
 
-function decodeValue(type: number, bytes: Uint8Array): VdValue {
+function kx_decodeValue(type: number, bytes: Uint8Array): VdValue {
   const reader = new ByteReader(bytes);
   switch (type) {
     case VdType.UInt32:
@@ -86,13 +86,13 @@ function decodeValue(type: number, bytes: Uint8Array): VdValue {
 /** Serialize a VariantDictionary to its byte encoding. */
 export function writeVariantDictionary(dict: VariantDictionary): Uint8Array {
   const writer = new ByteWriter();
-  writer.writeU16(CURRENT_VERSION);
+  writer.writeU16(KX_CURRENT_VERSION);
   for (const [name, value] of dict) {
     const nameBytes = utf8Encode(name);
-    writer.writeU8(typeTag(value));
+    writer.writeU8(kx_typeTag(value));
     writer.writeI32(nameBytes.length);
     writer.writeBytes(nameBytes);
-    const valueBytes = encodeValue(value);
+    const valueBytes = kx_encodeValue(value);
     writer.writeI32(valueBytes.length);
     writer.writeBytes(valueBytes);
   }
@@ -100,7 +100,7 @@ export function writeVariantDictionary(dict: VariantDictionary): Uint8Array {
   return writer.toBytes();
 }
 
-function typeTag(value: VdValue): number {
+function kx_typeTag(value: VdValue): number {
   switch (value.type) {
     case 'uint32':
       return VdType.UInt32;
@@ -119,7 +119,7 @@ function typeTag(value: VdValue): number {
   }
 }
 
-function encodeValue(value: VdValue): Uint8Array {
+function kx_encodeValue(value: VdValue): Uint8Array {
   switch (value.type) {
     case 'uint32':
       return new ByteWriter(4).writeU32(value.value).toBytes();

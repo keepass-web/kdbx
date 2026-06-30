@@ -11,7 +11,7 @@
 
 import { concatBytes } from './bytes.ts';
 
-function getCrypto(): Crypto {
+function kx_getCrypto(): Crypto {
   const c = globalThis.crypto;
   if (!c?.subtle) {
     throw new Error('WebCrypto (globalThis.crypto.subtle) is not available in this environment');
@@ -24,38 +24,38 @@ function getCrypto(): Crypto {
  * `SharedArrayBuffer`). Our buffers are always `ArrayBuffer`-backed, so this
  * narrowing cast is sound and avoids copying large payloads.
  */
-function buf(data: Uint8Array): Uint8Array<ArrayBuffer> {
+function kx_buf(data: Uint8Array): Uint8Array<ArrayBuffer> {
   return data as Uint8Array<ArrayBuffer>;
 }
 
 /** Fill a fresh array of `length` bytes with cryptographically strong randomness. */
 export function getRandomBytes(length: number): Uint8Array {
   const out = new Uint8Array(length);
-  getCrypto().getRandomValues(out);
+  kx_getCrypto().getRandomValues(out);
   return out;
 }
 
 /** SHA-256 digest. */
 export async function sha256(data: Uint8Array): Promise<Uint8Array> {
-  return new Uint8Array(await getCrypto().subtle.digest('SHA-256', buf(data)));
+  return new Uint8Array(await kx_getCrypto().subtle.digest('SHA-256', kx_buf(data)));
 }
 
 /** SHA-512 digest. */
 export async function sha512(data: Uint8Array): Promise<Uint8Array> {
-  return new Uint8Array(await getCrypto().subtle.digest('SHA-512', buf(data)));
+  return new Uint8Array(await kx_getCrypto().subtle.digest('SHA-512', kx_buf(data)));
 }
 
 /** HMAC-SHA-256 of `data` under `key`. */
 export async function hmacSha256(key: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
-  const subtle = getCrypto().subtle;
+  const subtle = kx_getCrypto().subtle;
   const cryptoKey = await subtle.importKey(
     'raw',
-    buf(key),
+    kx_buf(key),
     { name: 'HMAC', hash: 'SHA-256' },
     false,
     ['sign'],
   );
-  return new Uint8Array(await subtle.sign('HMAC', cryptoKey, buf(data)));
+  return new Uint8Array(await subtle.sign('HMAC', cryptoKey, kx_buf(data)));
 }
 
 /**
@@ -67,10 +67,10 @@ export async function aesCbcEncrypt(
   iv: Uint8Array,
   data: Uint8Array,
 ): Promise<Uint8Array> {
-  const subtle = getCrypto().subtle;
-  const cryptoKey = await subtle.importKey('raw', buf(key), 'AES-CBC', false, ['encrypt']);
+  const subtle = kx_getCrypto().subtle;
+  const cryptoKey = await subtle.importKey('raw', kx_buf(key), 'AES-CBC', false, ['encrypt']);
   return new Uint8Array(
-    await subtle.encrypt({ name: 'AES-CBC', iv: buf(iv) }, cryptoKey, buf(data)),
+    await subtle.encrypt({ name: 'AES-CBC', iv: kx_buf(iv) }, cryptoKey, kx_buf(data)),
   );
 }
 
@@ -80,10 +80,10 @@ export async function aesCbcDecrypt(
   iv: Uint8Array,
   data: Uint8Array,
 ): Promise<Uint8Array> {
-  const subtle = getCrypto().subtle;
-  const cryptoKey = await subtle.importKey('raw', buf(key), 'AES-CBC', false, ['decrypt']);
+  const subtle = kx_getCrypto().subtle;
+  const cryptoKey = await subtle.importKey('raw', kx_buf(key), 'AES-CBC', false, ['decrypt']);
   return new Uint8Array(
-    await subtle.decrypt({ name: 'AES-CBC', iv: buf(iv) }, cryptoKey, buf(data)),
+    await subtle.decrypt({ name: 'AES-CBC', iv: kx_buf(iv) }, cryptoKey, kx_buf(data)),
   );
 }
 
@@ -111,15 +111,15 @@ export async function aesKdfTransform(
     throw new RangeError('AES-KDF rounds exceed the supported maximum');
   }
   const n = Number(rounds);
-  const subtle = getCrypto().subtle;
-  const cryptoKey = await subtle.importKey('raw', buf(seed), 'AES-CBC', false, ['encrypt']);
+  const subtle = kx_getCrypto().subtle;
+  const cryptoKey = await subtle.importKey('raw', kx_buf(seed), 'AES-CBC', false, ['encrypt']);
 
   const transformHalf = async (iv: Uint8Array): Promise<Uint8Array> => {
     // `n` zero plaintext blocks; CBC produces an extra PKCS#7 padding block,
     // so the value we want (AES^n) is the n-th block, i.e. bytes [16*(n-1), 16*n).
     const zeros = new Uint8Array(16 * n);
     const ciphertext = new Uint8Array(
-      await subtle.encrypt({ name: 'AES-CBC', iv: buf(iv) }, cryptoKey, buf(zeros)),
+      await subtle.encrypt({ name: 'AES-CBC', iv: kx_buf(iv) }, cryptoKey, kx_buf(zeros)),
     );
     return ciphertext.slice(16 * (n - 1), 16 * n);
   };
@@ -129,12 +129,12 @@ export async function aesKdfTransform(
   return sha256(concatBytes(left, right));
 }
 
-async function runTransformStream(
+async function kx_runTransformStream(
   stream: { readable: ReadableStream<Uint8Array>; writable: WritableStream<BufferSource> },
   data: Uint8Array,
 ): Promise<Uint8Array> {
   const writer = stream.writable.getWriter();
-  void writer.write(buf(data));
+  void writer.write(kx_buf(data));
   void writer.close();
   const reader = stream.readable.getReader();
   const chunks: Uint8Array[] = [];
@@ -152,10 +152,10 @@ async function runTransformStream(
 
 /** GZip-compress `data` (RFC 1952), matching KDBX compression algorithm 1. */
 export async function gzip(data: Uint8Array): Promise<Uint8Array> {
-  return runTransformStream(new CompressionStream('gzip'), data);
+  return kx_runTransformStream(new CompressionStream('gzip'), data);
 }
 
 /** GZip-decompress `data`. */
 export async function gunzip(data: Uint8Array): Promise<Uint8Array> {
-  return runTransformStream(new DecompressionStream('gzip'), data);
+  return kx_runTransformStream(new DecompressionStream('gzip'), data);
 }

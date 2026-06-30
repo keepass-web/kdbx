@@ -6,17 +6,17 @@
  * that values above 2^53 (e.g. large KDF iteration counts) round-trip exactly.
  */
 
-const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder('utf-8', { fatal: false });
+const kx_textEncoder = new TextEncoder();
+const kx_textDecoder = new TextDecoder('utf-8', { fatal: false });
 
 /** Encode a string as UTF-8 bytes (no BOM, no null terminator). */
 export function utf8Encode(value: string): Uint8Array {
-  return textEncoder.encode(value);
+  return kx_textEncoder.encode(value);
 }
 
 /** Decode UTF-8 bytes to a string. */
 export function utf8Decode(bytes: Uint8Array): string {
-  return textDecoder.decode(bytes);
+  return kx_textDecoder.decode(bytes);
 }
 
 /** Concatenate byte arrays into a single new array. */
@@ -90,11 +90,11 @@ export function fromHex(hex: string): Uint8Array {
   return out;
 }
 
-const BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-const BASE64_LOOKUP: Int16Array = (() => {
+const KX_BASE64_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const KX_BASE64_LOOKUP: Int16Array = (() => {
   const table = new Int16Array(256).fill(-1);
-  for (let i = 0; i < BASE64_CHARS.length; i += 1) {
-    table[BASE64_CHARS.charCodeAt(i)] = i;
+  for (let i = 0; i < KX_BASE64_CHARS.length; i += 1) {
+    table[KX_BASE64_CHARS.charCodeAt(i)] = i;
   }
   return table;
 })();
@@ -104,7 +104,7 @@ const BASE64_LOOKUP: Int16Array = (() => {
  * code runs in browsers and in Node without depending on `btoa`/`Buffer`.
  */
 export function toBase64(bytes: Uint8Array): string {
-  const c = (index: number): string => BASE64_CHARS.charAt(index);
+  const c = (index: number): string => KX_BASE64_CHARS.charAt(index);
   let out = '';
   let i = 0;
   for (; i + 2 < bytes.length; i += 3) {
@@ -142,7 +142,7 @@ export function fromBase64(value: string): Uint8Array {
   let value32 = 0;
   let outIndex = 0;
   for (let i = 0; i < length; i += 1) {
-    const code = BASE64_LOOKUP[clean.charCodeAt(i)] ?? -1;
+    const code = KX_BASE64_LOOKUP[clean.charCodeAt(i)] ?? -1;
     if (code < 0) {
       throw new Error('invalid base64 character');
     }

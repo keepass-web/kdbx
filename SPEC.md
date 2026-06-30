@@ -36,3 +36,9 @@ Two components:
 
 - To test correctness, custom files created with KeePassXC with fully known contents, covering every edge case.
 - To test interoperability, borrowing from KeePassXC `tests/data` and fixtures from `keepass-rs`, `File::KDBX`, and `KeePassJava2`.
+
+## Bundle-safe naming convention
+
+This library is concatenated with `@keepass-web/chacha20` and `@keepass-web/argon2` into a single `<script>` block for the self-contained distributable. Because all files share one JavaScript scope in that context, module-scope identifiers within kdbx that are **not** part of the public API must carry the prefix `KX_` (constants) or `kx_` (functions) if they collide with an identically named internal in a sibling library.
+
+Exported symbols (everything re-exported from `src/index.ts`) are part of the public API and must **not** carry the prefix.

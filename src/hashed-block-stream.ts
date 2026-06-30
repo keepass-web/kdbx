@@ -11,8 +11,8 @@ import { ByteReader, ByteWriter, bytesEqual, concatBytes } from './bytes.ts';
 import { sha256 } from './crypto.ts';
 
 /** Block size used when writing (KeePass uses 1 MiB). */
-const DEFAULT_BLOCK_SIZE = 1024 * 1024;
-const ZERO_HASH = new Uint8Array(32);
+const KX_HBS_BLOCK_SIZE = 1024 * 1024;
+const KX_ZERO_HASH = new Uint8Array(32);
 
 /** Verify and concatenate a hashed block stream into its payload. */
 export async function readHashedBlockStream(data: Uint8Array): Promise<Uint8Array> {
@@ -43,7 +43,7 @@ export async function readHashedBlockStream(data: Uint8Array): Promise<Uint8Arra
 /** Frame a payload as a hashed block stream. */
 export async function writeHashedBlockStream(
   payload: Uint8Array,
-  blockSize: number = DEFAULT_BLOCK_SIZE,
+  blockSize: number = KX_HBS_BLOCK_SIZE,
 ): Promise<Uint8Array> {
   const writer = new ByteWriter(payload.length + 64);
   let index = 0;
@@ -60,7 +60,7 @@ export async function writeHashedBlockStream(
   }
   // Terminating block: size 0 with a zero hash.
   writer.writeU32(index);
-  writer.writeBytes(ZERO_HASH);
+  writer.writeBytes(KX_ZERO_HASH);
   writer.writeU32(0);
   return writer.toBytes();
 }

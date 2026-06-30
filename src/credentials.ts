@@ -50,25 +50,25 @@ export class Credentials {
   }
 }
 
-const HEX_64 = /^[0-9a-fA-F]{64}$/;
+const KX_HEX_64 = /^[0-9a-fA-F]{64}$/;
 
 /** Derive the 32-byte key-file component, mirroring KeePass's detection order. */
 export async function keyFileComponent(bytes: Uint8Array): Promise<Uint8Array> {
-  const xmlKey = tryParseXmlKeyFile(bytes);
+  const xmlKey = kx_tryParseXmlKeyFile(bytes);
   if (xmlKey !== undefined) {
     return xmlKey;
   }
   if (bytes.length === 32) {
     return bytes.slice();
   }
-  const text = tryDecodeAscii(bytes);
-  if (text !== undefined && HEX_64.test(text.trim())) {
+  const text = kx_tryDecodeAscii(bytes);
+  if (text !== undefined && KX_HEX_64.test(text.trim())) {
     return fromHex(text.trim());
   }
   return sha256(bytes);
 }
 
-function tryDecodeAscii(bytes: Uint8Array): string | undefined {
+function kx_tryDecodeAscii(bytes: Uint8Array): string | undefined {
   for (const byte of bytes) {
     if (byte > 0x7e || (byte < 0x20 && byte !== 0x09 && byte !== 0x0a && byte !== 0x0d)) {
       return undefined;
@@ -82,8 +82,8 @@ function tryDecodeAscii(bytes: Uint8Array): string | undefined {
  * integrity hash); version 1.x stores 32 bytes as Base64. Returns `undefined`
  * if the bytes are not an XML key file.
  */
-function tryParseXmlKeyFile(bytes: Uint8Array): Uint8Array | undefined {
-  const text = tryDecodeUtf8(bytes);
+function kx_tryParseXmlKeyFile(bytes: Uint8Array): Uint8Array | undefined {
+  const text = kx_tryDecodeUtf8(bytes);
   if (text === undefined || !text.includes('<KeyFile')) {
     return undefined;
   }
@@ -97,7 +97,7 @@ function tryParseXmlKeyFile(bytes: Uint8Array): Uint8Array | undefined {
   return version.startsWith('2') ? fromHex(data) : fromBase64(data);
 }
 
-function tryDecodeUtf8(bytes: Uint8Array): string | undefined {
+function kx_tryDecodeUtf8(bytes: Uint8Array): string | undefined {
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {

@@ -85,19 +85,19 @@ export interface KdbxCreateOptions {
   aesKdfRounds?: bigint;
 }
 
-const DEFAULT_ARGON2 = {
+const KX_DEFAULT_ARGON2 = {
   memoryBytes: 16n * 1024n * 1024n,
   iterations: 3n,
   parallelism: 1,
   version: Argon2Version.V13,
 } as const;
-const DEFAULT_AES_KDF_ROUNDS = 60000n;
+const KX_DEFAULT_AES_KDF_ROUNDS = 60000n;
 
-function bytes(value: Uint8Array): VdValue {
+function kx_bytes(value: Uint8Array): VdValue {
   return { type: 'bytes', value };
 }
 
-function ivLengthFor(cipherId: Uint8Array): number {
+function kx_ivLengthFor(cipherId: Uint8Array): number {
   if (bytesEqual(cipherId, CipherId.ChaCha20)) {
     return 12;
   }
@@ -107,7 +107,7 @@ function ivLengthFor(cipherId: Uint8Array): number {
   throw new Error('unsupported outer cipher');
 }
 
-async function encryptPayload(
+async function kx_encryptPayload(
   cipherId: Uint8Array,
   cipherKey: Uint8Array,
   iv: Uint8Array,
@@ -122,7 +122,7 @@ async function encryptPayload(
   throw new Error('unsupported outer cipher');
 }
 
-async function decryptPayload(
+async function kx_decryptPayload(
   cipherId: Uint8Array,
   cipherKey: Uint8Array,
   iv: Uint8Array,
@@ -138,7 +138,7 @@ async function decryptPayload(
 }
 
 /** Transform the composite key according to the header's KDF settings. */
-async function transformKey(header: OuterHeader, compositeKey: Uint8Array): Promise<Uint8Array> {
+async function kx_transformKey(header: OuterHeader, compositeKey: Uint8Array): Promise<Uint8Array> {
   if (header.version.major >= 4) {
     if (!header.kdfParameters) {
       throw new Error('KDBX 4 header is missing KDF parameters');
@@ -200,7 +200,7 @@ export class Kdbx {
   static async load(data: Uint8Array, credentials: Credentials): Promise<Kdbx> {
     const { header, rawHeader, offset } = readOuterHeader(data);
     const compositeKey = await credentials.getCompositeKey();
-    const transformedKey = await transformKey(header, compositeKey);
+    const transformedKey = await kx_transformKey(header, compositeKey);
     const cipherKey = await deriveCipherKey(header.masterSeed, transformedKey);
 
     if (header.version.major >= 4) {
@@ -232,7 +232,7 @@ export class Kdbx {
     }
 
     const encrypted = await readHmacBlockStream(blockStream, hmacBaseKey);
-    let payload = await decryptPayload(header.cipherId, cipherKey, header.encryptionIv, encrypted);
+    let payload = await kx_decryptPayload(header.cipherId, cipherKey, header.encryptionIv, encrypted);
     if (header.compression === Compression.GZip) {
       payload = await gunzip(payload);
     }
@@ -303,11 +303,11 @@ export class Kdbx {
   async #save4(): Promise<Uint8Array> {
     const header = this.header;
     header.masterSeed = getRandomBytes(32);
-    header.encryptionIv = getRandomBytes(ivLengthFor(header.cipherId));
+    header.encryptionIv = getRandomBytes(kx_ivLengthFor(header.cipherId));
     if (!header.kdfParameters) {
       throw new Error('KDBX 4 database is missing KDF parameters');
     }
-    header.kdfParameters.set(KdfParam.AesSeed, bytes(getRandomBytes(32)));
+    header.kdfParameters.set(KdfParam.AesSeed, kx_bytes(getRandomBytes(32)));
 
     // Fresh inner random stream key (64 bytes for ChaCha20, 32 for Salsa20).
     this.#innerStreamKey = getRandomBytes(
@@ -332,7 +332,7 @@ export class Kdbx {
     const compositeKey = await this.#credentials.getCompositeKey();
     const transformedKey = await transformWithKdfParameters(compositeKey, header.kdfParameters);
     const cipherKey = await deriveCipherKey(header.masterSeed, transformedKey);
-    const encrypted = await encryptPayload(
+    const encrypted = await kx_encryptPayload(
       header.cipherId,
       cipherKey,
       header.encryptionIv,
@@ -401,7 +401,7 @@ export class Kdbx {
         compression: compression ? Compression.GZip : Compression.None,
         masterSeed: getRandomBytes(32),
         transformSeed: getRandomBytes(32),
-        transformRounds: options.aesKdfRounds ?? DEFAULT_AES_KDF_ROUNDS,
+        transformRounds: options.aesKdfRounds ?? KX_DEFAULT_AES_KDF_ROUNDS,
         encryptionIv: getRandomBytes(16),
         protectedStreamKey,
         streamStartBytes: getRandomBytes(32),
@@ -424,8 +424,8 @@ export class Kdbx {
       cipherId,
       compression: compression ? Compression.GZip : Compression.None,
       masterSeed: getRandomBytes(32),
-      encryptionIv: getRandomBytes(ivLengthFor(cipherId)),
-      kdfParameters: buildKdfParameters(options),
+      encryptionIv: getRandomBytes(kx_ivLengthFor(cipherId)),
+      kdfParameters: kx_buildKdfParameters(options),
     };
     return new Kdbx({
       header,
@@ -438,22 +438,22 @@ export class Kdbx {
   }
 }
 
-function buildKdfParameters(options: KdbxCreateOptions): VariantDictionary {
+function kx_buildKdfParameters(options: KdbxCreateOptions): VariantDictionary {
   const kdf = options.kdf ?? 'argon2id';
   const params: VariantDictionary = new Map();
   if (kdf === 'aes') {
-    params.set(KdfParam.Uuid, bytes(KdfId.Aes));
-    params.set(KdfParam.AesSeed, bytes(getRandomBytes(32)));
+    params.set(KdfParam.Uuid, kx_bytes(KdfId.Aes));
+    params.set(KdfParam.AesSeed, kx_bytes(getRandomBytes(32)));
     params.set(KdfParam.AesRounds, {
       type: 'uint64',
-      value: options.aesKdfRounds ?? DEFAULT_AES_KDF_ROUNDS,
+      value: options.aesKdfRounds ?? KX_DEFAULT_AES_KDF_ROUNDS,
     });
     return params;
   }
 
-  const argon2 = { ...DEFAULT_ARGON2, ...options.argon2 };
-  params.set(KdfParam.Uuid, bytes(kdf === 'argon2d' ? KdfId.Argon2d : KdfId.Argon2id));
-  params.set(KdfParam.Argon2Salt, bytes(getRandomBytes(32)));
+  const argon2 = { ...KX_DEFAULT_ARGON2, ...options.argon2 };
+  params.set(KdfParam.Uuid, kx_bytes(kdf === 'argon2d' ? KdfId.Argon2d : KdfId.Argon2id));
+  params.set(KdfParam.Argon2Salt, kx_bytes(getRandomBytes(32)));
   params.set(KdfParam.Argon2Version, { type: 'uint32', value: argon2.version });
   params.set(KdfParam.Argon2Memory, { type: 'uint64', value: argon2.memoryBytes });
   params.set(KdfParam.Argon2Iterations, { type: 'uint64', value: argon2.iterations });

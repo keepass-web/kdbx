@@ -13,9 +13,9 @@ import { hmacSha256 } from './crypto.ts';
 import { deriveBlockHmacKey } from './key.ts';
 
 /** Block size used when writing (KeePass uses 1 MiB for all but the last block). */
-const DEFAULT_BLOCK_SIZE = 1024 * 1024;
+const KX_HMS_BLOCK_SIZE = 1024 * 1024;
 
-async function blockMac(
+async function kx_blockMac(
   hmacBaseKey: Uint8Array,
   index: bigint,
   data: Uint8Array,
@@ -41,7 +41,7 @@ export async function readHmacBlockStream(
       throw new Error('invalid HMAC block size');
     }
     const blockData = reader.readBytes(size);
-    const expectedMac = await blockMac(hmacBaseKey, index, blockData);
+    const expectedMac = await kx_blockMac(hmacBaseKey, index, blockData);
     if (!bytesEqualConstantTime(expectedMac, storedMac)) {
       throw new Error('HMAC verification failed (wrong credentials or corrupt file)');
     }
@@ -58,14 +58,14 @@ export async function readHmacBlockStream(
 export async function writeHmacBlockStream(
   payload: Uint8Array,
   hmacBaseKey: Uint8Array,
-  blockSize: number = DEFAULT_BLOCK_SIZE,
+  blockSize: number = KX_HMS_BLOCK_SIZE,
 ): Promise<Uint8Array> {
   const writer = new ByteWriter(payload.length + 64);
   let index = 0n;
   let offset = 0;
 
   const writeBlock = async (block: Uint8Array): Promise<void> => {
-    writer.writeBytes(await blockMac(hmacBaseKey, index, block));
+    writer.writeBytes(await kx_blockMac(hmacBaseKey, index, block));
     writer.writeI32(block.length);
     writer.writeBytes(block);
     index += 1n;

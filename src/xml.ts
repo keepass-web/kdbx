@@ -26,9 +26,9 @@ export interface XmlText {
 
 export type XmlNode = XmlElement | XmlText;
 
-const NAME_END = new Set([' ', '\t', '\r', '\n', '/', '>', '=']);
+const KX_NAME_END = new Set([' ', '\t', '\r', '\n', '/', '>', '=']);
 
-function decodeEntities(text: string): string {
+function kx_decodeEntities(text: string): string {
   if (!text.includes('&')) {
     return text;
   }
@@ -56,7 +56,7 @@ function decodeEntities(text: string): string {
   });
 }
 
-class XmlParser {
+class KX_XmlParser {
   readonly #s: string;
   #i = 0;
 
@@ -98,7 +98,7 @@ class XmlParser {
 
   #readName(): string {
     const start = this.#i;
-    while (this.#i < this.#s.length && !NAME_END.has(this.#s[this.#i] ?? '')) {
+    while (this.#i < this.#s.length && !KX_NAME_END.has(this.#s[this.#i] ?? '')) {
       this.#i += 1;
     }
     return this.#s.slice(start, this.#i);
@@ -122,7 +122,7 @@ class XmlParser {
     this.#i += 1;
 
     const children = this.#parseChildren(name);
-    return { type: 'element', name, attributes, children: canonicalize(children) };
+    return { type: 'element', name, attributes, children: kx_canonicalize(children) };
   }
 
   #parseAttributes(): Array<[string, string]> {
@@ -150,7 +150,7 @@ class XmlParser {
       if (this.#i < 0) {
         throw new Error(`unterminated attribute value for ${name}`);
       }
-      const value = decodeEntities(this.#s.slice(start, this.#i));
+      const value = kx_decodeEntities(this.#s.slice(start, this.#i));
       this.#i += 1;
       attributes.push([name, value]);
     }
@@ -190,7 +190,7 @@ class XmlParser {
       this.#i = this.#s.indexOf('<', this.#i);
       children.push({
         type: 'text',
-        value: decodeEntities(this.#s.slice(start, this.#i)),
+        value: kx_decodeEntities(this.#s.slice(start, this.#i)),
         cdata: false,
       });
     }
@@ -202,7 +202,7 @@ class XmlParser {
  * whitespace-only text between them is layout, not content, and is dropped so
  * that parsing pretty-printed XML yields a canonical tree.
  */
-function canonicalize(children: XmlNode[]): XmlNode[] {
+function kx_canonicalize(children: XmlNode[]): XmlNode[] {
   const hasElement = children.some((child) => child.type === 'element');
   if (!hasElement) {
     return children;
@@ -214,28 +214,28 @@ function canonicalize(children: XmlNode[]): XmlNode[] {
 
 /** Parse an XML document, returning its root element. */
 export function parseXml(source: string): XmlElement {
-  return new XmlParser(source).parse();
+  return new KX_XmlParser(source).parse();
 }
 
-function escapeText(value: string): string {
+function kx_escapeText(value: string): string {
   return value.replace(/[&<>]/g, (ch) => (ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : '&gt;'));
 }
 
-function escapeAttribute(value: string): string {
+function kx_escapeAttribute(value: string): string {
   return value.replace(/[&<"]/g, (ch) => (ch === '&' ? '&amp;' : ch === '<' ? '&lt;' : '&quot;'));
 }
 
-function serializeAttributes(attributes: Array<[string, string]>): string {
+function kx_serializeAttributes(attributes: Array<[string, string]>): string {
   let out = '';
   for (const [name, value] of attributes) {
-    out += ` ${name}="${escapeAttribute(value)}"`;
+    out += ` ${name}="${kx_escapeAttribute(value)}"`;
   }
   return out;
 }
 
-function serializeElement(element: XmlElement, depth: number, out: string[]): void {
+function kx_serializeElement(element: XmlElement, depth: number, out: string[]): void {
   const indent = '  '.repeat(depth);
-  const attrs = serializeAttributes(element.attributes);
+  const attrs = kx_serializeAttributes(element.attributes);
 
   if (element.children.length === 0) {
     out.push(`${indent}<${element.name}${attrs}/>\n`);
@@ -245,16 +245,16 @@ function serializeElement(element: XmlElement, depth: number, out: string[]): vo
   const onlyText = element.children.every((child) => child.type === 'text');
   if (onlyText) {
     const text = element.children.map((child) => (child as XmlText).value).join('');
-    out.push(`${indent}<${element.name}${attrs}>${escapeText(text)}</${element.name}>\n`);
+    out.push(`${indent}<${element.name}${attrs}>${kx_escapeText(text)}</${element.name}>\n`);
     return;
   }
 
   out.push(`${indent}<${element.name}${attrs}>\n`);
   for (const child of element.children) {
     if (child.type === 'element') {
-      serializeElement(child, depth + 1, out);
+      kx_serializeElement(child, depth + 1, out);
     } else if (child.value.trim() !== '') {
-      out.push(`${'  '.repeat(depth + 1)}${escapeText(child.value)}\n`);
+      out.push(`${'  '.repeat(depth + 1)}${kx_escapeText(child.value)}\n`);
     }
   }
   out.push(`${indent}</${element.name}>\n`);
@@ -263,6 +263,6 @@ function serializeElement(element: XmlElement, depth: number, out: string[]): vo
 /** Serialize an element tree to an XML document string (with declaration). */
 export function serializeXml(root: XmlElement): string {
   const out = ['<?xml version="1.0" encoding="utf-8" standalone="yes"?>\n'];
-  serializeElement(root, 0, out);
+  kx_serializeElement(root, 0, out);
   return out.join('');
 }

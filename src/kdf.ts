@@ -13,8 +13,8 @@ import { Argon2Version, KdfId, KdfParam } from './constants.ts';
 import { aesKdfTransform } from './crypto.ts';
 import { type VariantDictionary, vdRequireBytes, vdRequireInt } from './variant-dictionary.ts';
 
-const ARGON2_TAG_LENGTH = 32;
-const BYTES_PER_KIB = 1024n;
+const KX_ARGON2_TAG_LENGTH = 32;
+const KX_BYTES_PER_KIB = 1024n;
 
 /** Transform a 32-byte composite key with AES-KDF (KDBX 3.1 and the AES-KDF KDF). */
 export async function aesKdf(
@@ -41,15 +41,15 @@ export async function transformWithKdfParameters(
     return aesKdfTransform(compositeKey, seed, rounds);
   }
 
-  const argonType = argon2TypeFor(uuid);
+  const argonType = kx_argon2TypeFor(uuid);
   if (argonType !== undefined) {
-    return runArgon2(compositeKey, params, argonType);
+    return kx_runArgon2(compositeKey, params, argonType);
   }
 
   throw new Error('unsupported KDF UUID in KDF parameters');
 }
 
-function argon2TypeFor(uuid: Uint8Array): Argon2Type | undefined {
+function kx_argon2TypeFor(uuid: Uint8Array): Argon2Type | undefined {
   if (bytesEqual(uuid, KdfId.Argon2d)) {
     return 'argon2d';
   }
@@ -59,7 +59,7 @@ function argon2TypeFor(uuid: Uint8Array): Argon2Type | undefined {
   return undefined;
 }
 
-function runArgon2(
+function kx_runArgon2(
   compositeKey: Uint8Array,
   params: VariantDictionary,
   type: Argon2Type,
@@ -69,7 +69,7 @@ function runArgon2(
   const iterations = Number(vdRequireInt(params, KdfParam.Argon2Iterations));
   // KDBX stores memory in bytes; RFC 9106 / the argon2 package take KiB.
   const memoryBytes = vdRequireInt(params, KdfParam.Argon2Memory);
-  const memory = Number(memoryBytes / BYTES_PER_KIB);
+  const memory = Number(memoryBytes / KX_BYTES_PER_KIB);
 
   const versionParam = params.get(KdfParam.Argon2Version);
   const version =
@@ -77,8 +77,8 @@ function runArgon2(
       ? Argon2Version.V13
       : Number(vdRequireInt(params, KdfParam.Argon2Version));
 
-  const secret = optionalBytes(params, KdfParam.Argon2Secret);
-  const associatedData = optionalBytes(params, KdfParam.Argon2AssocData);
+  const secret = kx_optionalBytes(params, KdfParam.Argon2Secret);
+  const associatedData = kx_optionalBytes(params, KdfParam.Argon2AssocData);
 
   return argon2({
     password: compositeKey,
@@ -86,7 +86,7 @@ function runArgon2(
     parallelism,
     memory,
     iterations,
-    tagLength: ARGON2_TAG_LENGTH,
+    tagLength: KX_ARGON2_TAG_LENGTH,
     version,
     type,
     ...(secret ? { secret } : {}),
@@ -94,7 +94,7 @@ function runArgon2(
   });
 }
 
-function optionalBytes(params: VariantDictionary, name: string): Uint8Array | undefined {
+function kx_optionalBytes(params: VariantDictionary, name: string): Uint8Array | undefined {
   const value = params.get(name);
   return value?.type === 'bytes' ? value.value : undefined;
 }
